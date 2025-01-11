@@ -10,7 +10,7 @@ namespace CaseStudy.Models
         public required string CustomerName { get; set; }
         public DateTime OrderDate { get; set; } = DateTime.Now;
         public OrderStatus Status { get; set; } = OrderStatus.New;
-        public required List<Item> Items { get; set; }
+        public required ICollection<Item> Items { get; set; }
 
     }
 
@@ -24,6 +24,6 @@ namespace CaseStudy.Models
     public class OrderInput
     {
         public required string CustomerName { get; set; }
-        public required List<Item> Items { get; set; }
+        public required ICollection<ItemInput> Items { get; set; }
     }
 }
