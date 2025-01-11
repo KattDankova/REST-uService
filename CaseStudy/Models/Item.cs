@@ -7,14 +7,23 @@ namespace CaseStudy.Models
     {
         [Key]
         public int IDItem { get; set; }
-        public required string Name { get; set; }
-        public required double Price { get; set; }
-        public ICollection<Order> Orders { get; set; }
+        public string Name { get; set; }
+        public double Price { get; set; }
+        public ICollection<OrderItems> Orders { get; set; }
     }
 
     public class ItemInput
     {
-        public required int IDItem { get; set; }
-        public required int Quantity { get; set; }
+        public int IDItem { get; set; }
+        public int Quantity { get; set; }
+    }
+
+    public class ItemOutput
+    {
+        public int IDItem { get; set; }
+        public string Name { get; set; }
+        public int Quantity { get; set; }
+        public double Price { get; set; }
+        public double CalculatedPrice { get; set; }
     }
 }

@@ -19,13 +19,19 @@ namespace CaseStudy.Models
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
-            modelBuilder.Entity<Order>()
-           .HasMany(i => i.Items)
-           .WithMany(o => o.Orders)
-           .UsingEntity<OrderItems>(
-               x => x.HasOne(oi => oi.Item).WithMany().HasForeignKey(oi => oi.IDItem),
-               x => x.HasOne(oi => oi.Order).WithMany().HasForeignKey(oi => oi.IDOrder)
-           );
+            modelBuilder.Entity<OrderItems>()
+                .HasKey(sc => new { sc.IDOrder, sc.IDItem });
+
+            modelBuilder.Entity<OrderItems>()
+                .HasOne(sc => sc.Order)
+                .WithMany(s => s.Items)
+                .HasForeignKey(sc => sc.IDOrder);
+
+            modelBuilder.Entity<OrderItems>()
+                .HasOne(sc => sc.Item)
+                .WithMany(c => c.Orders)
+                .HasForeignKey(sc => sc.IDItem);
+
 
             modelBuilder.Entity<Item>().HasData(new Item { IDItem = 1, Name = "Jablka", Price = 20 });
             modelBuilder.Entity<Item>().HasData(new Item { IDItem = 2, Name = "Hrušky", Price = 30 });
