@@ -7,11 +7,15 @@ namespace CaseStudy.Models
     {
         [Key]
         public Guid IDOrder { get; set; }
-        public int OrderNumber { get; set; }
+        [Required]
+        [Range(100000, 999999)]
+        public int OrderNumber { get; set; } = 100000001;
+        [Required]
+        [MaxLength(255)]
         public string CustomerName { get; set; }
         public DateTime OrderDate { get; set; } = DateTime.Now;
         public OrderStatus Status { get; set; } = OrderStatus.New;
-        public ICollection<OrderItems> Items { get; set; }
+        public ICollection<OrderItems> Items { get; set; } = [];
 
     }
 
@@ -23,22 +27,5 @@ namespace CaseStudy.Models
         Paid = 1,
         [Description("Zrušená")]
         Canceled = 2
-    }
-
-    public class OrderInput
-    {
-        public string CustomerName { get; set; }
-        public ICollection<ItemInput> Items { get; set; }
-    }
-
-    public class OrderOutput
-    {
-        public string IDOrder { get; set; }
-        public int OrderNumber { get; set; }
-        public string CustomerName { get; set; }
-        public DateTime OrderDate { get; set; }
-        public string Status { get; set; }
-        public double SumPrice { get; set; }
-        public ICollection<ItemOutput> Items { get; set; }
     }
 }

@@ -13,44 +13,55 @@ namespace CaseStudy.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly OrdersDBContext _context;
-        private readonly KafkaProducerService _kafkaproducerService;
+        private readonly KafkaProducer _kafkaproducerService;
+        private readonly IConfiguration _configuration;
 
-        public OrdersController(OrdersDBContext context, KafkaProducerService kafkaproducerService)
+        public OrdersController(OrdersDBContext context, KafkaProducer kafkaproducerService, IConfiguration configuration)
         {
             _context = context;
             _kafkaproducerService = kafkaproducerService;
+            _configuration = configuration;
         }
 
         // POST: api/Orders
         [HttpPost]
-        public async Task<ActionResult<OrderOutput>> PostOrder(OrderInput input)
+        public async Task<ActionResult<OrderOutput>> PostOrder([FromBody] OrderInput input)
         {
             if (input.Items.Count == 0)
             {
                 return BadRequest("Order is empty!");
             }
 
+            var existingItems = _context.Items.Where(item => input.Items.Select(i => i.IDItem).ToList().Contains(item.IDItem)).ToList();
+
             foreach (var item in input.Items)
             {
-                if (GetExistingItem(item.IDItem) == null)
+                if (existingItems.SingleOrDefault(i => i.IDItem == item.IDItem) != null)
+                {
+                    if (item.Quantity <= 0)
+                    {
+                        return BadRequest($"Quantity for #{item.IDItem} is lower than 1!");
+                    }
+                }
+                else
                 {
                     return BadRequest($"Item #{item.IDItem} does not exist!");
-                }
-                if (item.Quantity <= 0)
-                {
-                    return BadRequest($"Quantity for #{item.IDItem} is lower than 1!");
                 }
             }
 
             var highestOrderNumberInDB = _context.Orders.OrderByDescending(on => on.OrderNumber).Select(on => on.OrderNumber).FirstOrDefault();
-            var predefinedOrderNumber = 100000000;
 
-            Order order = new Order
+            Order order = new()
             {
                 IDOrder = new Guid(),
                 CustomerName = input.CustomerName,
-                OrderNumber = highestOrderNumberInDB != 0 ? highestOrderNumberInDB + 1 : predefinedOrderNumber + 1
             };
+
+            if (highestOrderNumberInDB > 0)
+            {
+                order.OrderNumber = highestOrderNumberInDB + 1;
+            }
+
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
 
@@ -74,24 +85,7 @@ namespace CaseStudy.Controllers
 
             await _context.SaveChangesAsync();
 
-            var response = new OrderOutput
-            {
-                IDOrder = order.IDOrder.ToString(),
-                OrderNumber = order.OrderNumber,
-                CustomerName = order.CustomerName,
-                OrderDate = order.OrderDate,
-                Status = GetEnumName(order.Status),
-                Items = order.Items
-                .Select(item => new ItemOutput
-                {
-                    IDItem = item.IDItem,
-                    Name = item.Item.Name,
-                    Price = item.Item.Price,
-                    Quantity = item.Quantity,
-                    CalculatedPrice = item.Quantity * item.Item.Price
-                }).ToList(),
-                SumPrice = order.Items.Sum(x => x.Item.Price * x.Quantity)
-            };
+            var response = MapOrderToOrderOutput(order);
 
             return CreatedAtAction("GetOrder", new { orderNumber = order.OrderNumber }, response);
         }
@@ -100,101 +94,108 @@ namespace CaseStudy.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<OrderOutput>>> GetOrders()
         {
-            List<OrderOutput> orders = _context.Orders.Include(i => i.Items)
-                .Select(order => new OrderOutput
-                {
-                    IDOrder = order.IDOrder.ToString(),
-                    OrderNumber = order.OrderNumber,
-                    CustomerName = order.CustomerName,
-                    OrderDate = order.OrderDate,
-                    Status = GetEnumName(order.Status),
-                    Items = order.Items
-                        .Select(item => new ItemOutput
-                        {
-                            IDItem = item.IDItem,
-                            Name = item.Item.Name,
-                            Price = item.Item.Price,
-                            Quantity = item.Quantity,
-                            CalculatedPrice = item.Quantity * item.Item.Price
-                        }).ToList(),
-                    SumPrice = order.Items.Sum(x => x.Item.Price * x.Quantity)
-                }).ToList();
+            var orders = _context.Orders.Include(i => i.Items)
+                .ThenInclude(i => i.Item)
+                .Select(order => MapOrderToOrderOutput(order))
+                .ToList();
 
             return Ok(orders);
         }
 
         // GET: api/Orders/5
         [HttpGet("{orderNumber}")]
-        public async Task<ActionResult<OrderOutput>> GetOrder(int orderNumber)
+        public async Task<ActionResult<OrderOutput>> GetOrder([FromRoute] int orderNumber)
         {
-            var dbOrder = _context.Orders.Include(i => i.Items).ThenInclude(i => i.Item).SingleOrDefault(on => on.OrderNumber == orderNumber);
+            var dbOrder = _context.Orders.Include(i => i.Items)
+                .ThenInclude(i => i.Item)
+                .SingleOrDefault(on => on.OrderNumber == orderNumber);
 
             if (dbOrder == null)
             {
                 return NotFound();
             }
 
-            List<ItemOutput> items = dbOrder.Items
-            .Select(item => new ItemOutput
-            {
-                IDItem = item.IDItem,
-                Name = item.Item.Name,
-                Price = item.Item.Price,
-                Quantity = item.Quantity,
-                CalculatedPrice = item.Quantity * item.Item.Price
-            })
-            .ToList();
+            var response = MapOrderToOrderOutput(dbOrder);
 
-            OrderOutput order = new OrderOutput
-            {
-                IDOrder = dbOrder.IDOrder.ToString(),
-                OrderNumber = dbOrder.OrderNumber,
-                CustomerName = dbOrder.CustomerName,
-                OrderDate = dbOrder.OrderDate,
-                Status = GetEnumName(dbOrder.Status),
-                Items = items,
-                SumPrice = items.Sum(x => x.CalculatedPrice)
-            };
-
-            return Ok(order);
+            return Ok(response);
         }
 
+        // POST: api/Orders/Payment
         [HttpPost("Payment")]
-        public async Task<IActionResult> PostPaymentOrder(string id, bool paid)
+        public async Task<IActionResult> PostPaymentOrder([FromBody] MessageInput paymentInfo)
         {
-            var order = GetExistingOrder(id);
+            var order = GetExistingOrder(paymentInfo.IDOrder);
             if (order == null)
             {
                 return BadRequest("Order does not exist.");
             }
 
-            var topic = "Payment_topic";
-            Message message = new()
+            var topic = _configuration["Kafka:PaymentTopic"];
+            var message = new MessageInput 
             {
                 IDOrder = order.IDOrder.ToString(),
-                Paid = paid
+                Paid = paymentInfo.Paid
             };
 
             _kafkaproducerService.ProduceAsync(topic, message.ToJson());
             return Ok($"Payment for order #{order.OrderNumber} has been processed");
         }
 
-        private Order GetExistingOrder(string id)
+        // POST: api/Orders/Restore
+        [HttpPost("Restore")]
+        public async Task<IActionResult> PutOrderStatus([FromBody] IDOfOrder order)
         {
-            return _context.Orders.SingleOrDefault(x => x.IDOrder.ToString() == id);
+            var existingOrder = GetExistingOrder(order.IDOrder);
+            if (existingOrder == null)
+            {
+                return BadRequest("Order does not exist.");
+            }
+
+            if (existingOrder.Status != OrderStatus.Canceled)
+            {
+                return BadRequest("Order status cannot be changed");
+            }
+
+            existingOrder.Status = OrderStatus.New;
+            _context.Entry(existingOrder).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+
+            return Ok($"Status for order #{existingOrder.OrderNumber} is {existingOrder.Status}");
         }
 
-        private Item GetExistingItem(int id)
+        private Order? GetExistingOrder(string orderId)
         {
-            return _context.Items.SingleOrDefault(x => x.IDItem == id);
+            return _context.Orders.SingleOrDefault(x => x.IDOrder.ToString() == orderId);
         }
 
-        public string GetEnumName<T>(T enumValue) where T : Enum
+        private string GetEnumName<T>(T enumValue) where T : Enum
         {
-            FieldInfo field = enumValue.GetType().GetField(enumValue.ToString());
-            DescriptionAttribute attribute = field?.GetCustomAttribute<DescriptionAttribute>();
+            var field = enumValue.GetType().GetField(enumValue.ToString());
+            var attribute = field?.GetCustomAttribute<DescriptionAttribute>();
             return attribute?.Description ?? enumValue.ToString();
         }
 
+        private OrderOutput MapOrderToOrderOutput(Order order)
+        {
+            var items = order.Items.Select(item => new ItemOutput
+            {
+                IDItem = item.IDItem,
+                Name = item.Item.Name,
+                Price = item.Item.Price,
+                Quantity = item.Quantity,
+                CalculatedPrice = item.Quantity * item.Item.Price
+            }).ToList();
+
+            return new OrderOutput
+            {
+                IDOrder = order.IDOrder.ToString(),
+                OrderNumber = order.OrderNumber,
+                CustomerName = order.CustomerName,
+                OrderDate = order.OrderDate,
+                Status = GetEnumName(order.Status),
+                Items = items,
+                SumPrice = items.Sum(x => x.CalculatedPrice)
+            };
+        }
     }
 }

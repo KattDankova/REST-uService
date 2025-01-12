@@ -3,21 +3,18 @@ using Confluent.Kafka;
 
 namespace CaseStudy.Services
 {
-    public class Message
-    {
-        public string IDOrder { get; set; }
-        public bool Paid { get; set; }
-    }
-
-    public class KafkaOrderPaymentConsumer : BackgroundService
+    public class KafkaConsumer : BackgroundService
     {
         private readonly ConsumerConfig _consumerConfig;
         private readonly IConfiguration _configuration;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly ILogger<KafkaConsumer> _logger;
 
-        public KafkaOrderPaymentConsumer(IServiceScopeFactory serviceScopeFactory, IConfiguration configuration)
+        public KafkaConsumer(IServiceScopeFactory serviceScopeFactory, IConfiguration configuration, ILogger<KafkaConsumer> logger)
         {
-            // Configure Kafka consumer
+            _configuration = configuration;
+            _logger = logger;
+
             _consumerConfig = new ConsumerConfig
             {
                 BootstrapServers = _configuration["Kafka:BootstrapServers"],
@@ -27,7 +24,6 @@ namespace CaseStudy.Services
             };
 
             _serviceScopeFactory = serviceScopeFactory;
-            _configuration = configuration;
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,51 +31,55 @@ namespace CaseStudy.Services
             return Task.Run(async () =>
             {
                 using var consumer = new ConsumerBuilder<Ignore, string>(_consumerConfig).Build();
-                consumer.Subscribe("Payment_topic");
+                consumer.Subscribe(_configuration["Kafka:PaymentTopic"]);
 
-                while (!stoppingToken.IsCancellationRequested)
+                try
                 {
-                    try
+                    while (!stoppingToken.IsCancellationRequested)
                     {
-                        var consumeResult = consumer.Consume(stoppingToken);
-                        if (consumeResult != null)
+                        try
                         {
-                            Console.WriteLine($"Message received: {consumeResult.Message.Value}");
-                            await ProcessMessageAsync(consumeResult.Message.Value);
+                            var consumeResult = consumer.Consume(stoppingToken);
+                            if (consumeResult != null)
+                            {
+                                await ProcessMessageAsync(consumeResult.Message.Value);
+                            }
+                        }
+                        catch (ConsumeException ex)
+                        {
+                            _logger.LogError($"Kafka consume error: {ex.Message}");
                         }
                     }
-                    catch (ConsumeException ex)
-                    {
-                        Console.WriteLine($"Kafka consume error: {ex.Message}");
-                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Kafka consumer operation canceled.");
+                }
+                finally
+                {
+                    consumer.Close();
                 }
 
-                consumer.Close();
             }, stoppingToken);
         }
-
 
         private async Task ProcessMessageAsync(string message)
         {
             try
             {
                 using var scope = _serviceScopeFactory.CreateScope();
-
-                // Resolve the scoped service
                 var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
 
-                // Parse the message (e.g., JSON to an object)
-                var messageBody = Newtonsoft.Json.JsonConvert.DeserializeObject<Message>(message);
+                var messageBody = Newtonsoft.Json.JsonConvert.DeserializeObject<MessageInput>(message);
 
-                // Update the order in the database
                 if (messageBody != null)
                 {
-                    await orderService.MarkOrderAsPaid(messageBody.IDOrder, messageBody.Paid);
+                    await orderService.MarkOrderAsPaid(messageBody);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error processing message: {ex.Message}");
+                _logger.LogError($"Error processing message: {ex.Message}");
             }
         }
     }

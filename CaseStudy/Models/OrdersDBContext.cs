@@ -12,10 +12,6 @@ namespace CaseStudy.Models
         public DbSet<Item> Items { get; set; }
         public DbSet<OrderItems> OrderItems { get; set; }
 
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.UseInMemoryDatabase("CaseStudyOrders");
-        }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
 
@@ -33,10 +29,11 @@ namespace CaseStudy.Models
                 .HasForeignKey(sc => sc.IDItem);
 
 
-            modelBuilder.Entity<Item>().HasData(new Item { IDItem = 1, Name = "Jablka", Price = 20 });
-            modelBuilder.Entity<Item>().HasData(new Item { IDItem = 2, Name = "Hrušky", Price = 30 });
-            modelBuilder.Entity<Item>().HasData(new Item { IDItem = 3, Name = "Banány", Price = 40 });
+            modelBuilder.Entity<Item>().HasData(
+                new Item { IDItem = 1, Name = "Jablka", Price = 20 },
+                new Item { IDItem = 2, Name = "Hrušky", Price = 30 },
+                new Item { IDItem = 3, Name = "Banány", Price = 40 }
+            );
         }
-
     }
 }

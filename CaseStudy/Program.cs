@@ -8,9 +8,9 @@ using CaseStudy.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddSingleton<KafkaProducerService>();
+builder.Services.AddSingleton<KafkaProducer>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddHostedService<KafkaOrderPaymentConsumer>();
+builder.Services.AddHostedService<KafkaConsumer>();
 
 builder.Services.AddControllers()
                 .AddNewtonsoftJson(options =>

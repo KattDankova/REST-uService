@@ -2,15 +2,16 @@
 
 namespace CaseStudy.Services
 {
-    public class KafkaProducerService
+    public class KafkaProducer
     {
         private readonly IConfiguration _configuration;
-
+        private readonly ILogger<KafkaProducer> _logger;
         private readonly IProducer<Null, string> _producer;
 
-        public KafkaProducerService(IConfiguration configuration)
+        public KafkaProducer(IConfiguration configuration, ILogger<KafkaProducer> logger)
         {
             _configuration = configuration;
+            _logger = logger;
 
             var producerconfig = new ProducerConfig
             {
@@ -24,7 +25,14 @@ namespace CaseStudy.Services
         {
             var kafkamessage = new Message<Null, string> { Value = message, };
 
-            await _producer.ProduceAsync(topic, kafkamessage);
+            try
+            {
+                await _producer.ProduceAsync(topic, kafkamessage);
+            }
+            catch (ProduceException<Null, string> ex)
+            {
+                _logger.LogError($"Error producing message: {ex.Error.Reason}");
+            }
         }
     }
 }
