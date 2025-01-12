@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CaseStudy.Models;
 using System.ComponentModel;
 using System.Reflection;
-using Newtonsoft.Json.Linq;
+using CaseStudy.Services;
+using NuGet.Protocol;
 
 namespace CaseStudy.Controllers
 {
@@ -17,10 +13,12 @@ namespace CaseStudy.Controllers
     public class OrdersController : ControllerBase
     {
         private readonly OrdersDBContext _context;
+        private readonly KafkaProducerService _kafkaproducerService;
 
-        public OrdersController(OrdersDBContext context)
+        public OrdersController(OrdersDBContext context, KafkaProducerService kafkaproducerService)
         {
             _context = context;
+            _kafkaproducerService = kafkaproducerService;
         }
 
         // POST: api/Orders
@@ -161,9 +159,8 @@ namespace CaseStudy.Controllers
             return Ok(order);
         }
 
-        // PUT: api/Orders/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutOrderPaymentAcceptance(string id)
+        [HttpPost("Payment")]
+        public async Task<IActionResult> PostPaymentOrder(string id, bool paid)
         {
             var order = GetExistingOrder(id);
             if (order == null)
@@ -171,13 +168,15 @@ namespace CaseStudy.Controllers
                 return BadRequest("Order does not exist.");
             }
 
-            order.Status = OrderStatus.Paid;
+            var topic = "Payment_topic";
+            Message message = new()
+            {
+                IDOrder = order.IDOrder.ToString(),
+                Paid = paid
+            };
 
-            _context.Entry(order).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-
-
-            return Ok($"Order {order.OrderNumber} has been paid!");
+            _kafkaproducerService.ProduceAsync(topic, message.ToJson());
+            return Ok($"Payment for order #{order.OrderNumber} has been processed");
         }
 
         private Order GetExistingOrder(string id)

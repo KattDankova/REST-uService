@@ -3,10 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using CaseStudy.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddSingleton<KafkaProducerService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddHostedService<KafkaOrderPaymentConsumer>();
 
 builder.Services.AddControllers()
                 .AddNewtonsoftJson(options =>
@@ -19,6 +23,7 @@ builder.Services.AddDbContext<OrdersDBContext>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
