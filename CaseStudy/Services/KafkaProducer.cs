@@ -2,7 +2,7 @@
 
 namespace CaseStudy.Services
 {
-    //BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
+    // BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
     public class KafkaProducer
     {
         private readonly IConfiguration _configuration;
@@ -22,7 +22,7 @@ namespace CaseStudy.Services
             _producer = new ProducerBuilder<Null, string>(producerconfig).Build();
         }
 
-        //Uložení message do Kafky
+        // Uložení message do Kafky
         public async Task ProduceAsync(string topic, string message)
         {
             var kafkamessage = new Message<Null, string> { Value = message, };

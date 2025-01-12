@@ -3,7 +3,7 @@ using Confluent.Kafka;
 
 namespace CaseStudy.Services
 {    
-    //BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
+    // BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
     public class KafkaConsumer : BackgroundService
     {
         private readonly ConsumerConfig _consumerConfig;
@@ -65,7 +65,7 @@ namespace CaseStudy.Services
             }, stoppingToken);
         }
 
-        //Zpracování message uložené do Kafky
+        // Zpracování message uložené do Kafky
         private async Task ProcessMessageAsync(string message)
         {
             try

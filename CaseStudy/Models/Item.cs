@@ -13,5 +13,7 @@ namespace CaseStudy.Models
         [Range(0, double.MaxValue)]
         public double Price { get; set; }
         public ICollection<OrderItems>? Orders { get; set; }
+        // Množství jsem přesunula do spojovací tabulky mezi objednávkou a zbožím, jelikož se jedná o množství v rámci dané objednávky.
+        // Zde by dávalo smysl pouze množství na skladě
     }
 }

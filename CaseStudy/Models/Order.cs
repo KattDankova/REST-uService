@@ -5,8 +5,8 @@ namespace CaseStudy.Models
 {
     public class Order
     {
-        //Přemýšlela jsem, zda použít Číslo objednávky jako identifikátor objednávky, ale přišlo mi, že Číslo objednávky je identifikátor přístupný pro uživatele, zatímco ID objednávky by v některých případech být přístupné nemělo
-        //(Proto ID objednávky používám u přijetí informace o zaplacení a obnovení stavu objednávky, naopak pro získání detailu objednávky pro uživatele request vyžaduje Číslo objednávky)
+        // Přemýšlela jsem, zda použít Číslo objednávky jako identifikátor objednávky, ale přišlo mi, že Číslo objednávky je identifikátor přístupný pro uživatele, zatímco ID objednávky by v některých případech být přístupné nemělo
+        // (Proto ID objednávky používám u přijetí informace o zaplacení a obnovení stavu objednávky, naopak pro získání detailu objednávky pro uživatele request vyžaduje Číslo objednávky)
         [Key]
         public Guid IDOrder { get; set; }
         [Required]

@@ -18,7 +18,7 @@ namespace CaseStudy.Services
             _logger = logger;
         }
 
-        //V rámci zpracování uložené Kafka message změna stavu objednávky
+        // V rámci zpracování uložené Kafka message změna stavu objednávky
         public async Task MarkOrderAsPaid(MessageInput message)
         {
             var order = _context.Orders.SingleOrDefault(x => x.IDOrder.ToString() == message.IDOrder);
