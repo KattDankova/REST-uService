@@ -4,6 +4,7 @@ using Confluent.Kafka;
 namespace CaseStudy.Services
 {    
     // BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
+    // Osobně nemám s tímto zkušenosti, nicméně v aktuálním zaměstnání je k podobným problémům využita Kafka, tak jsem zvolila právě tu
     public class KafkaConsumer : BackgroundService
     {
         private readonly ConsumerConfig _consumerConfig;
