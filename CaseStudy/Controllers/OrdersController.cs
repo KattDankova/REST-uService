@@ -23,21 +23,25 @@ namespace CaseStudy.Controllers
             _configuration = configuration;
         }
 
+        //Vytvoření objednávky
         // POST: api/Orders
         [HttpPost]
         public async Task<ActionResult<OrderOutput>> PostOrder([FromBody] OrderInput input)
         {
+            //Objednávka musí obsahovat zboží
             if (input.Items.Count == 0)
             {
                 return BadRequest("Order is empty!");
             }
 
+            //Zboží musí existovat
             var existingItems = _context.Items.Where(item => input.Items.Select(i => i.IDItem).ToList().Contains(item.IDItem)).ToList();
 
             foreach (var item in input.Items)
             {
                 if (existingItems.SingleOrDefault(i => i.IDItem == item.IDItem) != null)
                 {
+                    //Nelze koupit 0 položek
                     if (item.Quantity <= 0)
                     {
                         return BadRequest($"Quantity for #{item.IDItem} is lower than 1!");
@@ -49,6 +53,7 @@ namespace CaseStudy.Controllers
                 }
             }
 
+            //Návaznost číslování objednávek
             var highestOrderNumberInDB = _context.Orders.OrderByDescending(on => on.OrderNumber).Select(on => on.OrderNumber).FirstOrDefault();
 
             Order order = new()
@@ -63,8 +68,10 @@ namespace CaseStudy.Controllers
             }
 
             _context.Orders.Add(order);
+            //Získání ID nově vytvořené objednávky
             await _context.SaveChangesAsync();
 
+            //Vytvoření záznamů ve spojovací tabulce mezi Objednávkou a Předmětem
             var items = input.Items
                 .GroupBy(i => i.IDItem).Select(ni => new ItemInput
                 {
@@ -85,11 +92,13 @@ namespace CaseStudy.Controllers
 
             await _context.SaveChangesAsync();
 
+            //"Zkrášlení" výstupu detailu objednávky
             var response = MapOrderToOrderOutput(order);
 
             return CreatedAtAction("GetOrder", new { orderNumber = order.OrderNumber }, response);
         }
 
+        //Výpis všech objednávek
         // GET: api/Orders
         [HttpGet]
         public async Task<ActionResult<IEnumerable<OrderOutput>>> GetOrders()
@@ -102,6 +111,7 @@ namespace CaseStudy.Controllers
             return Ok(orders);
         }
 
+        //Výpis konkrétní objednávky pro uživatele přes číslo objednávky
         // GET: api/Orders/5
         [HttpGet("{orderNumber}")]
         public async Task<ActionResult<OrderOutput>> GetOrder([FromRoute] int orderNumber)
@@ -110,6 +120,7 @@ namespace CaseStudy.Controllers
                 .ThenInclude(i => i.Item)
                 .SingleOrDefault(on => on.OrderNumber == orderNumber);
 
+            //Objednávka musí existovat
             if (dbOrder == null)
             {
                 return NotFound();
@@ -120,6 +131,7 @@ namespace CaseStudy.Controllers
             return Ok(response);
         }
 
+        //Přijetí informace o zaplacení objednávky
         // POST: api/Orders/Payment
         [HttpPost("Payment")]
         public async Task<IActionResult> PostPaymentOrder([FromBody] MessageInput paymentInfo)
@@ -130,6 +142,7 @@ namespace CaseStudy.Controllers
                 return BadRequest("Order does not exist.");
             }
 
+            //Uložení platby do Kafka topicu
             var topic = _configuration["Kafka:PaymentTopic"];
             var message = new MessageInput 
             {
@@ -141,6 +154,7 @@ namespace CaseStudy.Controllers
             return Ok($"Payment for order #{order.OrderNumber} has been processed");
         }
 
+        //Obnovení objednávky do stavu Nová pro Zrušené objednávky
         // POST: api/Orders/Restore
         [HttpPost("Restore")]
         public async Task<IActionResult> PutOrderStatus([FromBody] IDOfOrder order)
@@ -151,6 +165,7 @@ namespace CaseStudy.Controllers
                 return BadRequest("Order does not exist.");
             }
 
+            //Pouze zrušené objednávky
             if (existingOrder.Status != OrderStatus.Canceled)
             {
                 return BadRequest("Order status cannot be changed");
@@ -168,6 +183,7 @@ namespace CaseStudy.Controllers
             return _context.Orders.SingleOrDefault(x => x.IDOrder.ToString() == orderId);
         }
 
+        //Metoda pro získání uživatelsky přívětivějšího názvu pro enum stavu objednávky
         private string GetEnumName<T>(T enumValue) where T : Enum
         {
             var field = enumValue.GetType().GetField(enumValue.ToString());
@@ -175,6 +191,7 @@ namespace CaseStudy.Controllers
             return attribute?.Description ?? enumValue.ToString();
         }
 
+        //Metoda pro mapování objednávky do "úhlednějšího" objektu
         private OrderOutput MapOrderToOrderOutput(Order order)
         {
             var items = order.Items.Select(item => new ItemOutput

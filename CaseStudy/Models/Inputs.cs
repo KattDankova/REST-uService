@@ -2,6 +2,8 @@
 
 namespace CaseStudy.Models
 {
+
+    //Ojekty využité pro "úhlednější" vstupní parametry API requestů
     public class OrderInput
     {
         [Required]
@@ -18,12 +20,14 @@ namespace CaseStudy.Models
         public int Quantity { get; set; }
     }
 
+    //Sjednocení, aby všechny parametry, které nejsou součástí URL, byly součástí objektu
     public class IDOfOrder
     {
         [Required]
         public string IDOrder { get; set; }
     }
 
+    //Informace o zaplacení do Kafky
     public class MessageInput
     {
         [Required]

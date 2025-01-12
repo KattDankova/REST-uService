@@ -2,7 +2,8 @@
 using Confluent.Kafka;
 
 namespace CaseStudy.Services
-{
+{    
+    //BONUS: Pro přijetí informace o zaplacení objednávky zajistěte asynchroní zpracování plateb pomocí fronty
     public class KafkaConsumer : BackgroundService
     {
         private readonly ConsumerConfig _consumerConfig;
@@ -30,6 +31,7 @@ namespace CaseStudy.Services
         {
             return Task.Run(async () =>
             {
+                //Přijetí message uložené do Kafky
                 using var consumer = new ConsumerBuilder<Ignore, string>(_consumerConfig).Build();
                 consumer.Subscribe(_configuration["Kafka:PaymentTopic"]);
 
@@ -63,6 +65,7 @@ namespace CaseStudy.Services
             }, stoppingToken);
         }
 
+        //Zpracování message uložené do Kafky
         private async Task ProcessMessageAsync(string message)
         {
             try

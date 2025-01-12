@@ -1,5 +1,6 @@
 ﻿namespace CaseStudy.Models
 {
+    //Objekty využité pro "úhlednější" výstup API
     public class OrderOutput
     {
         public string IDOrder { get; set; }
